@@ -1,0 +1,24 @@
+Name : $nana$
+Password : $qwerty$
+Email : $nana@gmail.com$
+Phone : $123$
+Balance : $-30000$
+=======================================
+Name : $Sinta$
+Password : $qwerty$
+Email : $sinta@gmail.com$
+Phone : $123456$
+Balance : $84220$
+=======================================
+Name : $Fia$
+Password : $qwerty$
+Email : $fia@gmail.com$
+Phone : $12345$
+Balance : $10000$
+=======================================
+Name : $Sirin$
+Password : $qwerty$
+Email : $sirin@yahoo.com$
+Phone : $12345$
+Balance : $10000$
+=======================================
