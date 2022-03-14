@@ -1,4 +1,4 @@
-# Revision history for RestaurantApp-Haskell
+# Revision history for Restaurant
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

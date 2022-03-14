@@ -22,3 +22,21 @@ Email : $sirin@yahoo.com$
 Phone : $12345$
 Balance : $10000$
 =======================================
+Name : $Jojo$
+Password : $qwerty$
+Email : $jojo@gmail.com$
+Phone : $12345$
+Balance : $-20000$
+=======================================
+Name : $Nina$
+Password : $qwerty$
+Email : $nina@gmail.com$
+Phone : $123456$
+Balance : $10000$
+=======================================
+Name : $Ali$
+Password : $qwerty$
+Email : $ali@yahoo.com$
+Phone : $12345$
+Balance : $10000$
+=======================================

@@ -65,3 +65,27 @@ Transaction Type = $Order Food$
 Total Order Amount = $18000$
 =======================================
 
+Date = $2022-03-02 20:54:35.1431242 SE Asia Standard Time$
+Transaction Type = $Top Up$
+Amount = $60000$
+=======================================
+
+Date = $2022-03-02 20:54:40.9579771 SE Asia Standard Time$
+Transaction Type = $Order Food$
+1. Rendang Rp.20000
+2. Sate Rp.30000
+
+
+Total Order Amount = $45000$
+=======================================
+
+Date = $2022-03-08 19:37:50.0126106 SE Asia Standard Time$
+Transaction Type = $Order Food$
+1. Soto Rp.10000
+2. Rendang Rp.20000
+3. Gule Rp.25000
+
+
+Total Order Amount = $55000$
+=======================================
+

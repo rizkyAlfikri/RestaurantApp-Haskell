@@ -1,3 +1,7 @@
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State (StateT, evalStateT, get, put, runState)
+import Control.Monad.Trans.Writer (WriterT, execWriterT, tell)
 import Data.Char (isDigit)
 import Data.List
 import Data.Time
@@ -19,11 +23,17 @@ headerData = "No.  |    Food     |     Price     |\n"
 dividier = "=======================================\n"
 
 menuFilename = "./assets/menu.txt"
+
 retaurantBalanceFilename = "./assets/retaurantBalance.txt"
+
 retaurantBalanceFilenameTemp = "./assets/retaurantBalanceTemp.txt"
+
 retaurantTransactionHistoryFilename = "./assets/retaurantTransactionHistory.txt"
+
 userTableFilename = "./assets/userTable.txt"
+
 userTableFilenameTemp = "./assets/userTableTemp.txt"
+
 userCookieFilename = "./assets/userCookie.txt"
 
 calculateSpacePrefix :: Int -> String
@@ -31,6 +41,41 @@ calculateSpacePrefix i = replicate i ' '
 
 calculateSpaceSufix :: Int -> Int -> String
 calculateSpaceSufix i lengthChar = replicate (i - lengthChar) ' '
+
+newtype Stack a = Stack {unStack :: StateT Int (WriterT String IO) a}
+
+constructStack :: IO () -> String -> Stack ()
+constructStack operation logMessage = Stack $ do
+  liftIO operation
+  liftIO $ print logMessage
+  lift $ tell $ "Logging: " ++ logMessage
+  return ()
+
+constructUserStack :: IO () -> String -> User -> Stack ()
+constructUserStack operation logMessage user = Stack $ do
+  liftIO operation
+  liftIO $ print logMessage
+  lift $ tell $ "Logging: " ++ show user
+  return ()
+
+constructOrderStack :: IO () -> String -> Order -> Stack ()
+constructOrderStack operation logMessage order = Stack $ do
+  liftIO operation
+  liftIO $ print logMessage
+  lift $ tell $ "Logging: " ++ show order
+  return ()
+
+evalStack :: Stack a -> IO String
+evalStack m = execWriterT (evalStateT (unStack m) 0)
+
+executeEvalStack :: IO () -> String -> IO String
+executeEvalStack operation logMessage = evalStack $ constructStack operation logMessage
+
+executeUserEvalStack :: IO () -> String -> User -> IO String
+executeUserEvalStack operation logMessage user = evalStack $ constructUserStack operation logMessage user
+
+executeOrderEvalStack :: IO () -> String -> Order -> IO String
+executeOrderEvalStack operation logMessage order = evalStack $ constructOrderStack operation logMessage order
 
 login :: IO ()
 login = do
@@ -108,7 +153,6 @@ checkUserLoginState = do
   if isFileExit
     then doUserOrderMenu Order {foodList = [], totalOrder = 0}
     else login
-
 parseRawData :: String -> String -> (Bool, [String]) -> [String]
 parseRawData [] _ value = reverse $ snd value
 parseRawData (x : xs) tempValue value = case x of
@@ -126,11 +170,13 @@ registerUser = do
   password <- getLine
   putStrLn "Please enter your phone"
   phone <- getLine
-  putStrLn "Registering User ..."
   isFileExit <- doesFileExist userTableFilename
   if isFileExit then putStrLn "" else writeFile userTableFilename ""
-  let userData = constructUserTableFormat userTableFilename "" [User {name = name, email = email, password = password, phone = phone, balance = "10000"}]
-  appendFile userTableFilename userData
+  let userData = User {name = name, email = email, password = password, phone = phone, balance = "10000"}
+  let userDataTableFormatted = constructUserTableFormat userTableFilename "" [User {name = name, email = email, password = password, phone = phone, balance = "10000"}]
+  let registeringUser = appendFile userTableFilename userDataTableFormatted
+  regusterUserResult <- executeUserEvalStack registeringUser "Registering User ..." userData
+  print regusterUserResult
   createUserCookie email
   doUserOrderMenu Order {foodList = [], totalOrder = 0}
 
@@ -144,9 +190,9 @@ createUserCookie :: String -> IO ()
 createUserCookie email = do
   putStrLn "Loading ..."
   writeFile userCookieFilename ""
-  contents <- readFile userCookieFilename
-  putStrLn contents
-  appendFile userCookieFilename $ "Email : $" ++ email ++ "$ Login Status : $True$\n"
+  let createCookie = writeFile userCookieFilename $ "Email : $" ++ email ++ "$ Login Status : $True$\n"
+  createdCookieResult <- executeEvalStack createCookie "Creating user cookie ..."
+  print createdCookieResult
 
 doUserOrderMenu :: Order -> IO ()
 doUserOrderMenu order = do
@@ -228,7 +274,7 @@ addOrderMenu foodMenu order = do
 
 removeOrderMenu :: Order -> IO ()
 removeOrderMenu order = do
-  if null $ foodList order 
+  if null $ foodList order
     then do
       putStrLn "You havent order menu. Please order it first"
       orderMenu order
@@ -240,8 +286,8 @@ removeOrderMenu order = do
       menuOption <- getLine
       case menuOption of
         "E" -> orderMenu order
-        _   -> do
-          if menuOption `elem` foodsIndex 
+        _ -> do
+          if menuOption `elem` foodsIndex
             then do
               let foodOrderList = constructFoodsWithIndex (foodList order) 1
               let totalOrderPrice = totalOrder order
@@ -274,7 +320,7 @@ removeOrderFoodByIndex (food : xs) index =
 
 seeUserOrderList :: Order -> IO ()
 seeUserOrderList order = do
-  if null $ foodList order 
+  if null $ foodList order
     then do
       putStrLn "You haven't order menu. Please order it first"
       doUserOrderMenu order
@@ -282,7 +328,7 @@ seeUserOrderList order = do
       let sortedFood = qsort $ foodList order
       let totalPrice = totalOrder order
       let printOrder = constructPrintOrder sortedFood 1
-      putStrLn (printOrder ++ "Total Price = Rp." ++ show totalPrice)  
+      putStrLn (printOrder ++ "Total Price = Rp." ++ show totalPrice)
       doUserOrderMenu order
 
 qsort :: [Food] -> [Food]
@@ -306,7 +352,8 @@ topUpBalance order = do
       let userTableData = parseToUser $ parseRawData userTableContent "" (False, [])
       let newUserData = changeUserBalance userEmail userTableData (+ amount)
       let newUserDataFormated = constructUserTableFormat userTableFilename "" newUserData
-      writeFile userTableFilename newUserDataFormated
+      changeUserBalanceResult <- executeEvalStack (writeFile userTableFilename newUserDataFormated) "User balance updated"
+      print changeUserBalanceResult
       removeFile userTableFilenameTemp
       createTopUpTransaction amount
       sendTopUpMoneyToRestaurantBalance amount
@@ -342,7 +389,9 @@ createTopUpTransaction topUpAmount = do
   topUpTime <- getZonedTime
   let topUpTransaction = "Date = $" ++ show topUpTime ++ "$\n" ++ "Transaction Type = $Top Up$\n" ++ "Amount = $" ++ show topUpAmount ++ "$\n" ++ dividier ++ "\n"
   putStrLn $ filter (/= '$') topUpTransaction
-  appendFile retaurantTransactionHistoryFilename topUpTransaction
+  let createTopUpTransactionProcess = appendFile retaurantTransactionHistoryFilename topUpTransaction
+  createTopUpTransactionResult <- executeEvalStack createTopUpTransactionProcess "Created top up transaction"
+  print createTopUpTransactionResult
 
 sendTopUpMoneyToRestaurantBalance :: Int -> IO ()
 sendTopUpMoneyToRestaurantBalance topUpBalance = do
@@ -352,9 +401,11 @@ sendTopUpMoneyToRestaurantBalance topUpBalance = do
   contents <- readFile retaurantBalanceFilenameTemp
   let balanceData = head $ parseRawData contents "" (False, [])
   let newBalance = topUpBalance + read balanceData
-  writeFile retaurantBalanceFilename $ "Balance = $" ++ show newBalance ++ "$"
+  let sendTopUpMoneyToRestaurantBalanceProcess = writeFile retaurantBalanceFilename $ "Balance = $" ++ show newBalance ++ "$"
+  sendTopUpMoneyToRestaurantBalanceResult <- executeEvalStack sendTopUpMoneyToRestaurantBalanceProcess "Send user money to restaurant balance"
+  print sendTopUpMoneyToRestaurantBalanceResult
   removeFile retaurantBalanceFilenameTemp
-  
+
 checkUserBalance :: Order -> IO ()
 checkUserBalance order = do
   isFileExit <- doesFileExist userCookieFilename
@@ -417,13 +468,14 @@ checkoutUserOrder order = do
               let userTableData = parseToUser $ parseRawData userTableContent "" (False, [])
               let newUserData = changeUserBalance userEmail userTableData $ (-) totalAmountOrder
               let newUserDataFormated = constructUserTableFormat userTableFilename "" newUserData
-              writeFile userTableFilename newUserDataFormated
+              let changeUserTableDataProcess = writeFile userTableFilename newUserDataFormated
+              changeUserTableDataResult <- executeEvalStack changeUserTableDataProcess "User balance updated"
               removeFile userTableFilenameTemp
               createOrderTransaction order totalAmountOrderDiscounted
               sendTopUpMoneyToRestaurantBalance totalAmountOrderDiscounted
               putStrLn "Checkout order success"
               doUserOrderMenu Order {foodList = [], totalOrder = 0}
-          else do
+            else do
               putStrLn "Your balance is not enough :(\n Please top up your balance first"
               doUserOrderMenu order
         else do
@@ -437,18 +489,25 @@ createOrderTransaction order orderAmount = do
   let sortedFood = qsort $ foodList order
   let menu = constructPrintOrder sortedFood 1
   isFileExit <- doesFileExist retaurantTransactionHistoryFilename
-  if isFileExit then putStrLn "" else writeFile retaurantTransactionHistoryFilename ""
+  if isFileExit
+    then putStrLn ""
+    else do
+      result <- executeEvalStack (writeFile retaurantTransactionHistoryFilename "") "Creating Retaurant Transaction History table"
+      print result
   topUpTime <- getZonedTime
   let orderTransaction = "Date = $" ++ show topUpTime ++ "$\n" ++ "Transaction Type = $Order Food$\n" ++ menu ++ "\n" ++ "Total Order Amount = $" ++ show orderAmount ++ "$\n" ++ dividier ++ "\n"
   let orderTransactionFormated = filter (/= '$') orderTransaction
   putStrLn orderTransactionFormated
-  appendFile retaurantTransactionHistoryFilename orderTransaction
+  let createOrderTransactionProcess = appendFile retaurantTransactionHistoryFilename orderTransaction
+  createOrderTransactionResult <- executeEvalStack createOrderTransactionProcess "Created order transaction"
+  print createOrderTransactionResult
 
 removeCookie :: IO ()
 removeCookie = do
   isFileExit <- doesFileExist userCookieFilename
   if isFileExit
     then do
-      removeFile userCookieFilename
+      result <- executeEvalStack (removeFile userCookieFilename) "Clear temporary cache"
+      print result 
       login
     else login
